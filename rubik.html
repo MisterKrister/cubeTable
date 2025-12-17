@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cube Solve Stats Viewer</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Libraries will be loaded near the end -->
+</head>
+
+<body>
+    <div class="container">
+        <div class="file-selector">
+            <label for="csvFileInput" class="file-button">Select file</label>
+            <input type="file" id="csvFileInput" accept=".csv" style="display: none;">
+
+            <!-- Container for the button and custom dropdown -->
+            <div id="sessionSelectorContainer" class="session-selector-container"
+                style="display: none; position: relative;">
+                <button id="changeSessionButton">Select Session</button>
+                <div id="customSessionDropdown" class="custom-session-dropdown">
+                    <!-- Session list items will be populated here by JS -->
+                </div>
+            </div>
+
+            <span id="solveCountDisplay" class="solve-count">Solves: 0</span>
+        </div>
+
+        <div class="main-content">
+            <!-- Data Display Section (Stays the same) -->
+            <div class="data-display">
+                <div class="data-header">
+                    <span class="sortable" data-column="time">Time <span class="sort-arrow"></span></span>
+                    <span class="sortable" data-column="face_turns">Turns <span class="sort-arrow"></span></span>
+                    <span class="sortable" data-column="tps">TPS <span class="sort-arrow"></span></span>
+                    <span class="sortable" data-column="date">Date <span class="sort-arrow">↑</span></span>
+                </div>
+                <div id="dataBody" class="data-body">
+                    <div class="placeholder-row">Load a CSV file to see solves...</div>
+                </div>
+            </div>
+
+            <!-- Wrapper for Chart and Record History -->
+            <div class="chart-area-wrapper">
+                <!-- Chart Container -->
+                <div class="chart-container">
+                    <canvas id="solvesChart"></canvas>
+                </div>
+
+                <!-- Record History Section -->
+                <div id="recordHistoryDisplay" class="record-history">
+                    <h2>Record History</h2>
+
+                    <!-- ↓↓↓ NEW Filter Buttons ↓↓↓ -->
+                    <div id="recordFilterButtons" class="record-filter-buttons">
+                        <button class="record-filter-button active" data-filter="single">Single</button>
+                        <button class="record-filter-button" data-filter="ao5">Ao5</button>
+                        <button class="record-filter-button" data-filter="ao12">Ao12</button>
+                        <button class="record-filter-button" data-filter="ao100">Ao100</button>
+                    </div>
+                    <!-- ↑↑↑ End Filter Buttons ↑↑↑ -->
+
+                    <ul id="recordHistoryList">
+                        <!-- History items will be populated by JS -->
+                        <li class="placeholder-row">No records yet for this session.</li>
+                    </ul>
+                </div>
+
+                <!-- Statistics Section -->
+                <div id="statsDisplay" class="stats-section">
+                    <h2>Statistics</h2>
+
+                    <div class="stats-input-container">
+                        <div class="stats-input-group">
+                            <label for="dateRangeInput">Date Range:</label>
+                            <input type="text" id="dateRangeInput" placeholder="2025/01/01-2025/02/02">
+                        </div>
+                        <div class="stats-input-group">
+                            <label for="dayCountInput">Or days:</label>
+                            <input type="number" id="dayCountInput" placeholder="30" min="1">
+                        </div>
+                        <button id="calculateStatsButton" class="calculate-stats-button">Calculate</button>
+                    </div>
+
+                    <div id="statsResults" class="stats-results">
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <span class="stat-label">Solves</span>
+                                <span class="stat-value" id="stat-solve-count">-</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-label">Average</span>
+                                <span class="stat-value" id="stat-average">-</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-label">Total Time</span>
+                                <span class="stat-value" id="stat-total-time">-</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-label">OLL Skip Rate</span>
+                                <span class="stat-value" id="stat-oll-skip">-</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-label">PLL Skip Rate</span>
+                                <span class="stat-value" id="stat-pll-skip">-</span>
+                            </div>
+                        </div>
+
+                        <div class="stats-steps">
+                            <h3>Average Step Times</h3>
+                            <div id="stepStatsContainer" class="step-stats-list">
+                                <div class="step-stat-placeholder">Calculate stats to see step breakdown</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div> <!-- End chart-area-wrapper -->
+
+        </div> <!-- End main-content -->
+    </div> <!-- End container -->
+
+    <!-- Modal Structure (Stays the same) -->
+    <div id="solveDetailModal" class="modal">
+        <div class="modal-content">
+            <span id="closeModalButton" class="close-button">×</span>
+            <div class="modal-body">
+                <div class="modal-text-details">
+                    <h2>Solve Details</h2>
+                    <div id="solveDetailContent" class="modal-text-details"></div>
+                </div>
+                <div class="modal-chart-container">
+                    <h2>Step Breakdown</h2>
+                    <canvas id="stepPieChartCanvas"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Average Detail modal ------------------------------------------------>
+    <div id="averageDetailModal" class="modal">
+        <div class="modal-content">
+            <span id="closeAverageModalButton" class="close-button">×</span>
+            <div id="averageDetailContent" class="modal-body"></div>
+        </div>
+    </div>
+
+    <!-- Libraries loaded near the end -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Your main script -->
+    <script type="module" src="main.js"></script>
+</body>
+
+</html>

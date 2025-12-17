@@ -1,0 +1,411 @@
+document.addEventListener('DOMContentLoaded', () => {
+    console.log("DOM Content Loaded - Script starting."); // <-- DEBUG 1
+
+    // --- Get DOM Elements ---
+    const fileInput = document.getElementById('csvFileInput');
+    const dataBody = document.getElementById('dataBody');
+    const solveCountDisplay = document.getElementById('solveCountDisplay');
+    const modal = document.getElementById('solveDetailModal');
+    const modalContent = document.getElementById('solveDetailContent');
+    const closeModalButton = document.getElementById('closeModalButton');
+    const chartCanvas = document.getElementById('solvesChart'); // Main line chart canvas
+    const headerSpans = document.querySelectorAll('.data-header .sortable');
+    const sessionSelect = document.getElementById('sessionSelect');
+    const changeSessionButton = document.getElementById('changeSessionButton');
+
+    console.log("Found file input element:", fileInput); // <-- DEBUG 2
+    if (!fileInput) console.error("Could not find the file input element (#csvFileInput).");
+
+    // --- State Variables ---
+    let allSolves = []; // To store raw parsed data
+    let displayedSolves = []; // To store processed and sorted data
+    let solvesChart = null; // Main line chart instance
+    let stepPieChart = null; // <<< NEW: Variable for the pie chart instance
+    let currentSort = { column: 'date', ascending: false }; // Default sort
+    let sessionMap = {}; // sessionName -> solves[]
+    let currentSession = null;
+
+    // --- Chart Initialization (Main Line Chart) ---
+    function initializeChart() {
+        console.log("Initializing main line chart..."); // <-- DEBUG Chart
+        if (solvesChart) {
+            console.log("Destroying previous main line chart instance.");
+            solvesChart.destroy();
+        }
+        if (!chartCanvas) {
+            console.error("Main line chart canvas element (#solvesChart) not found!");
+            return;
+        }
+        const ctx = chartCanvas.getContext('2d');
+        solvesChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                     { label: 'Single', data: [], borderColor: 'rgb(59, 130, 246)', borderWidth: 1.5, tension: 0, pointRadius: 0, fill: false },
+                     { label: 'Ao5', data: [], borderColor: 'rgb(239, 68, 68)', borderWidth: 1.5, tension: 0.3, pointRadius: 0, fill: false },
+                     { label: 'Ao12', data: [], borderColor: 'rgb(245, 158, 11)', borderWidth: 1.5, tension: 0.3, pointRadius: 0, fill: false }
+                ]
+            },
+            options: { // Options include axes formatting for seconds
+                responsive: true,
+                maintainAspectRatio: false,
+                 scales: {
+                    x: { display: true, title: { display: true, text: 'Solve Number', color: '#ccc' }, grid: { color: 'rgba(204, 204, 204, 0.2)' }, ticks: { color: '#ccc' } },
+                    y: { display: true, title: { display: true, text: 'Time (s)', color: '#ccc' }, grid: { color: 'rgba(204, 204, 204, 0.2)' }, ticks: { color: '#ccc', callback: function(value) { if (typeof value === 'number') { return (value / 1000).toFixed(2); } return value; } } }
+                },
+                plugins: { tooltip: { enabled: false }, legend: { display: true, position: 'bottom', align: 'start', labels: { boxWidth: 0, boxHeight: 0, color: '#ccc', generateLabels: function(chart) { const datasets = chart.data.datasets; return datasets.map((dataset, i) => ({ text: dataset.label, fillStyle: dataset.borderColor, strokeStyle: 'rgba(0,0,0,0)', lineWidth: 0, hidden: !chart.isDatasetVisible(i), datasetIndex: i, fontColor: dataset.borderColor })); } } } },
+                animation: { duration: 0 }
+            }
+        });
+         console.log("Main line chart initialized with axes (Y-axis in seconds)."); // <-- DEBUG Chart
+    }
+    // --- End of initializeChart ---
+
+
+    // --- Data Processing ---
+    function processSolves(rawData) {
+        console.log("[processSolves] Starting...");
+        if (!rawData || rawData.length < 2) { console.warn("[processSolves] No data or only header row found."); return []; }
+
+        const headers = rawData[0].map(h => h ? h.trim() : '');
+        const dataRows = rawData.slice(1);
+        console.log(`[processSolves] Processing ${dataRows.length} data rows.`);
+
+        let timeIndex = headers.indexOf('time'); if (timeIndex === -1) timeIndex = headers.indexOf('timer_time');
+        const dateIndex = headers.indexOf('date');
+        const faceTurnsIndex = headers.indexOf('face_turns');
+        const tpsIndex = headers.indexOf('turns_per_second');
+        const scrambleIndex = headers.indexOf('scramble');
+        const dnfIndex = headers.indexOf('dnf');
+        const totalRecogTimeIndex = headers.indexOf('total_recognition_time');
+        const totalExecTimeIndex = headers.indexOf('total_execution_time');
+
+        if (timeIndex === -1 || dateIndex === -1) { console.error("[processSolves] CRITICAL: Missing 'time'/'timer_time' or 'date' column."); return []; }
+
+        const stepIndices = {};
+        for (let i = 0; i < 9; i++) { stepIndices[`step_${i}_name`] = headers.indexOf(`step_${i}_name`); stepIndices[`step_${i}_time`] = headers.indexOf(`step_${i}_time`); stepIndices[`step_${i}_recognition_time`] = headers.indexOf(`step_${i}_recognition_time`); stepIndices[`step_${i}_execution_time`] = headers.indexOf(`step_${i}_execution_time`); }
+
+        let validSolveCount = 0;
+        const processedData = dataRows.map((row, index) => {
+            const rowNumber = index + 2;
+            if (!Array.isArray(row) || row.length === 0 || row.every(cell => cell === null || cell === '')) return null;
+
+            const timeMsStr = row[timeIndex]; const dateStr = row[dateIndex];
+            const timeMs = parseInt(timeMsStr, 10); const date = new Date(dateStr);
+            let isValidDate = !isNaN(date.getTime());
+            if (isNaN(timeMs) || !isValidDate) { console.warn(`[processSolves] SKIPPING row ${rowNumber}: Invalid time or date.`); return null; }
+
+            const faceTurnsStr = faceTurnsIndex !== -1 ? row[faceTurnsIndex] : null;
+            const dnfStr = dnfIndex !== -1 ? row[dnfIndex] : 'false';
+            const tpsStr = tpsIndex !== -1 ? row[tpsIndex] : null;
+            const totalRecogTimeStr = totalRecogTimeIndex !== -1 ? row[totalRecogTimeIndex] : null;
+            const totalExecTimeStr = totalExecTimeIndex !== -1 ? row[totalExecTimeIndex] : null;
+
+            const faceTurns = parseInt(faceTurnsStr, 10); const isDNF = dnfStr?.toLowerCase() === 'true';
+            const totalRecognitionTime = parseInt(totalRecogTimeStr, 10); const totalExecutionTime = parseInt(totalExecTimeStr, 10);
+
+            let tps = null;
+            if (!isDNF && timeMs > 0 && !isNaN(faceTurns) && faceTurns > 0) { const rawTps = parseFloat(tpsStr); if (!isNaN(rawTps) && rawTps > 0) tps = rawTps; else { tps = (faceTurns / (timeMs / 1000)); if (!isFinite(tps)) tps = null; } }
+
+            const solveData = { id: headers.indexOf('id') !== -1 ? (row[headers.indexOf('id')] || `gen_${index}`) : `gen_${index}`, date: date, time: timeMs, face_turns: isNaN(faceTurns) ? null : faceTurns, tps: tps, scramble: scrambleIndex !== -1 ? (row[scrambleIndex] || 'N/A') : 'N/A', dnf: isDNF, totalRecognitionTime: isNaN(totalRecognitionTime) ? null : totalRecognitionTime, totalExecutionTime: isNaN(totalExecutionTime) ? null : totalExecutionTime, steps: [], };
+
+            let calculatedTotalRecog = 0;
+            for (let i = 0; i < 9; i++) {
+                const stepNameIndex = stepIndices[`step_${i}_name`]; const stepTimeIndex = stepIndices[`step_${i}_time`]; const stepRecogTimeIndex = stepIndices[`step_${i}_recognition_time`]; const stepExecTimeIndex = stepIndices[`step_${i}_execution_time`];
+                if (stepNameIndex !== -1 && row[stepNameIndex] && stepTimeIndex !== -1 && row[stepTimeIndex]) {
+                    const stepName = row[stepNameIndex]; const stepTime = parseInt(row[stepTimeIndex], 10);
+                    const stepRecogTime = stepRecogTimeIndex !== -1 ? parseInt(row[stepRecogTimeIndex], 10) : NaN; const stepExecTime = stepExecTimeIndex !== -1 ? parseInt(row[stepExecTimeIndex], 10) : NaN;
+                    if (!isNaN(stepTime)) { const stepData = { name: stepName, time: stepTime, recognitionTime: isNaN(stepRecogTime) ? null : stepRecogTime, executionTime: isNaN(stepExecTime) ? null : stepExecTime, }; if (stepData.executionTime === null && stepData.time !== null && stepData.recognitionTime !== null) { stepData.executionTime = Math.max(0, stepData.time - stepData.recognitionTime); } solveData.steps.push(stepData); if (stepData.recognitionTime !== null) { calculatedTotalRecog += stepData.recognitionTime; } } else { console.warn(`[processSolves] Row ${rowNumber}: Invalid step time for step ${stepName}.`); }
+                } else if (stepNameIndex === -1 && stepTimeIndex === -1 && stepRecogTimeIndex === -1 && stepExecTimeIndex === -1 && i > 0) { break; }
+            }
+            if (solveData.totalRecognitionTime === null) { solveData.totalRecognitionTime = calculatedTotalRecog; }
+            if (solveData.totalExecutionTime === null && solveData.time !== null && solveData.totalRecognitionTime !== null && !solveData.dnf) { solveData.totalExecutionTime = Math.max(0, solveData.time - solveData.totalRecognitionTime); }
+
+            validSolveCount++; return solveData;
+        }).filter(solve => solve !== null);
+
+        console.log(`[processSolves] Finished processing. Returning ${processedData.length} valid solves.`);
+        return processedData;
+    }
+    // --- End of processSolves ---
+
+
+    // --- Average Calculation ---
+    function calculateAverage(times, count) { if (times.length < count) return null; const lastN = times.slice(-count); const validTimes = lastN.filter(t => t !== null && t !== Infinity).map(t => Number(t)); if (validTimes.length < count) return null; if (count <= 3) { if (validTimes.length === 0) return null; return validTimes.reduce((a, b) => a + b, 0) / validTimes.length; } validTimes.sort((a, b) => a - b); const middleTimes = validTimes.slice(1, -1); if (middleTimes.length === 0) return null; return middleTimes.reduce((a, b) => a + b, 0) / middleTimes.length; }
+    function calculateRollingAverages(solves) { const times = solves.map(s => s.dnf ? Infinity : s.time); const ao5 = []; const ao12 = []; for (let i = 0; i < solves.length; i++) { ao5.push(calculateAverage(times.slice(0, i + 1), 5)); ao12.push(calculateAverage(times.slice(0, i + 1), 12)); } return { ao5, ao12 }; }
+    // --- End of Average Calculations ---
+
+
+    // --- Helper: Format Time --- *** UPDATED WITH OPTIONAL FLAG ***
+    function formatTime(ms, returnZeroOnError = false) {
+        if (ms === null || typeof ms === 'undefined' || typeof ms !== 'number') { return returnZeroOnError ? '0.00 s' : 'undefined s'; }
+        if (isNaN(ms)) { return returnZeroOnError ? '0.00 s' : 'undefined s'; }
+        if (ms === Infinity) return 'DNF';
+        const seconds = ms / 1000;
+        return seconds.toFixed(2) + ' s';
+    }
+    // --- End of formatTime ---
+
+    // --- Helper: Format Date (Absolute) ---
+    function formatDate(date) { if (!date || !(date instanceof Date) || isNaN(date.getTime())) return 'undefined'; try { return date.toISOString().slice(0, 16).replace('T', ' '); } catch (e) { console.error("Error formatting date:", date, e); return 'undefined'; } }
+    // --- End of formatDate ---
+
+    // --- Helper: Format Date (Relative or Absolute) ---
+    function formatRelativeDateOrAbsolute(date) { if (!date || !(date instanceof Date) || isNaN(date.getTime())) return 'undefined'; const now = new Date(); const diffMs = now.getTime() - date.getTime(); const weekInMs = 7 * 24 * 60 * 60 * 1000; if (diffMs >= weekInMs || diffMs < 0) return formatDate(date); const diffSeconds = Math.round(diffMs / 1000); const diffMinutes = Math.round(diffMs / (60 * 1000)); const diffHours = Math.round(diffMs / (60 * 60 * 1000)); const diffDays = Math.round(diffMs / (24 * 60 * 60 * 1000)); if (diffDays > 0) return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`; else if (diffHours > 0) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`; else if (diffMinutes > 0) return `${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''} ago`; else return `${Math.max(diffSeconds, 1)} second${diffSeconds !== 1 ? 's' : ''} ago`; }
+    // --- End of formatRelativeDateOrAbsolute ---
+
+
+    // --- Display Logic (Main List) --- *** UPDATED TO USE RELATIVE DATE ***
+    function displayData() {
+        console.log("[DisplayData] Starting. Solves to display:", displayedSolves.length);
+        if (!dataBody || !solveCountDisplay) { console.error("[DisplayData] Missing dataBody or solveCountDisplay element."); return; }
+        dataBody.innerHTML = '';
+        if (displayedSolves.length === 0) { dataBody.innerHTML = '<div class="placeholder-row">No solves to display.</div>'; solveCountDisplay.textContent = `Solves: 0`; console.log("[DisplayData] Finished (empty data)."); return; }
+        solveCountDisplay.textContent = `Solves: ${displayedSolves.length}`;
+        displayedSolves.forEach((solve, index) => { const row = document.createElement('div'); row.classList.add('data-row'); row.dataset.solveId = solve.id; const timeStr = solve.dnf ? 'DNF' : formatTime(solve.time); const turnsStr = solve.face_turns ?? 'N/A'; const tpsStr = solve.dnf ? 'N/A' : (solve.tps?.toFixed(2) ?? 'N/A'); const dateStr = formatRelativeDateOrAbsolute(solve.date); row.innerHTML = `<span>${timeStr}</span><span>${turnsStr}</span><span>${tpsStr}</span><span>${dateStr}</span>`; try { dataBody.appendChild(row); } catch (e) { console.error(`[DisplayData] ERROR appending row ${index}:`, e); } });
+        console.log("[DisplayData] Finished.");
+    }
+    // --- End of displayData ---
+
+
+     // --- Chart Update (Main Line Chart) ---
+     function updateChart() {
+        console.log("[UpdateChart] Starting.");
+        if (!solvesChart) { console.warn("[UpdateChart] Main chart not initialized."); initializeChart(); if (!solvesChart) { console.error("[UpdateChart] Failed to initialize main chart."); return; } }
+        if (allSolves.length === 0) { console.log("[UpdateChart] No solves data."); solvesChart.data.labels = []; solvesChart.data.datasets.forEach(dataset => dataset.data = []); try { solvesChart.update(); } catch(e) { console.error("[UpdateChart] Error updating empty main chart:", e); } console.log("[UpdateChart] Finished (empty data)."); return; }
+        const chronoSortedSolves = [...allSolves].sort((a, b) => a.date - b.date); const labels = chronoSortedSolves.map((_, index) => index + 1); const singleTimes = chronoSortedSolves.map(s => s.dnf ? null : s.time); const { ao5, ao12 } = calculateRollingAverages(chronoSortedSolves);
+        solvesChart.data.labels = labels; solvesChart.data.datasets[0].data = singleTimes; solvesChart.data.datasets[1].data = ao5; solvesChart.data.datasets[2].data = ao12;
+        try { console.log("[UpdateChart] Calling main chart.update()..."); solvesChart.update(); console.log("[UpdateChart] Main chart.update() called successfully."); } catch (e) { console.error("[UpdateChart] ERROR calling main chart.update():", e); }
+        console.log("[UpdateChart] Finished.");
+    }
+    // --- End of updateChart ---
+
+
+    // --- Sorting Logic ---
+    function sortData(column) { console.log("Sorting data by column:", column); const ascending = (currentSort.column === column) ? !currentSort.ascending : (column === 'date' ? false : true); displayedSolves.sort((a, b) => { let valA = a[column]; let valB = b[column]; if (column === 'time') { if (a.dnf && b.dnf) return 0; if (a.dnf) return ascending ? 1 : -1; if (b.dnf) return ascending ? -1 : 1; } const factor = ascending ? 1 : -1; if (valA === null || valA === undefined) return factor; if (valB === null || valB === undefined) return -factor; if (valA < valB) return ascending ? -1 : 1; if (valA > valB) return ascending ? 1 : -1; return 0; }); currentSort.column = column; currentSort.ascending = ascending; updateSortArrows(); displayData(); }
+    function updateSortArrows() { if (!headerSpans) return; headerSpans.forEach(span => { const column = span.dataset.column; const arrowSpan = span.querySelector('.sort-arrow'); if (!arrowSpan) return; if (column === currentSort.column) { arrowSpan.textContent = currentSort.ascending ? '↑' : '↓'; arrowSpan.style.opacity = '1'; } else { arrowSpan.textContent = ''; arrowSpan.style.opacity = '0.6'; } }); }
+    // --- End of Sorting Logic ---
+
+
+    // --- Modal Logic --- *** UPDATED TO INCLUDE PIE CHART ***
+    function showSolveDetails(solveId) {
+        console.log("[showSolveDetails] Starting for solve ID:", solveId);
+        const solve = allSolves.find(s => s.id === solveId);
+        if (!solve) { console.warn("[showSolveDetails] Solve not found."); return; }
+        if (!modal || !modalContent) { console.error("[showSolveDetails] Modal elements not found!"); return; }
+
+        // --- 1. Populate Text Details ---
+        let details = `Solve ID: ${solve.id ?? 'undefined'}\n`; details += `Date:     ${formatDate(solve.date)}\n`; details += `Time:     ${solve.dnf ? 'DNF' : formatTime(solve.time)}\n`; details += `Turns:    ${solve.face_turns ?? 'N/A'}\n`; details += `TPS:      ${solve.dnf ? 'N/A' : (solve.tps?.toFixed(2) ?? 'N/A')}\n`; details += `Scramble: ${solve.scramble}\n`; details += `----------------------------------------\n`; details += `Total Solve Time:     ${solve.dnf ? 'DNF' : formatTime(solve.time)}\n`; details += `Total Pause Time:     ${formatTime(solve.totalRecognitionTime)}\n`; details += `Total Execution Time: ${solve.dnf ? 'N/A' : formatTime(solve.totalExecutionTime)}\n`; details += `----------------------------------------\n`; details += `Steps:\n`;
+
+        // --- 2. Aggregate Step Data & Add to Text Details ---
+        let crossTime = 0, f2lTime = 0, ollTime = 0, pllTime = 0, otherTime = 0;
+        const stepLabels = ['Cross', 'F2L', 'OLL', 'PLL', 'Other'];
+        const stepColors = [
+            'rgb(34, 197, 94)',   // Green (e.g., F2L)
+            'rgb(239, 68, 68)',   // Red (e.g., OLL)
+            'rgb(59, 130, 246)',  // Blue (e.g., PLL)
+            'rgb(245, 158, 11)',  // Amber (e.g., Cross) - Reordered for visual preference
+            'rgb(107, 114, 128)'  // Gray 500 (For 'Other')
+        ];
+        
+        // Function to update pie chart colors dynamically
+        function updatePieChartColors(newColors) {
+            if (!Array.isArray(newColors) || newColors.length === 0) {
+                console.warn("Invalid colors array provided for pie chart.");
+                return;
+            }
+            stepColors.splice(0, stepColors.length, ...newColors);
+            console.log("Pie chart colors updated:", stepColors);
+        }
+
+        let totalAggregatedExecTime = 0;
+
+        console.log("[showSolveDetails] Aggregating step times. Solve steps:", solve.steps);
+
+        if (solve.steps && solve.steps.length > 0) {
+            solve.steps.forEach((step, index) => {
+                 details += `  - ${step.name ?? `Unnamed Step ${index}`}:\n`;
+                 details += `      Total: ${formatTime(step.time)} (Pause: ${formatTime(step.recognitionTime)}, Exec: ${formatTime(step.executionTime)})\n`;
+                 const execTime = (typeof step.executionTime === 'number' && !isNaN(step.executionTime)) ? step.executionTime : 0;
+                 const stepNameLower = step.name?.toLowerCase() ?? '';
+                 if (stepNameLower.includes('cross')) crossTime += execTime; else if (stepNameLower.includes('f2l')) f2lTime += execTime; else if (stepNameLower.includes('oll')) ollTime += execTime; else if (stepNameLower.includes('pll')) pllTime += execTime; else if (execTime > 0) otherTime += execTime;
+                 totalAggregatedExecTime += execTime;
+            });
+        } else { details += `  (No step data available or parsed)\n`; }
+
+        console.log(`[showSolveDetails] Aggregated Times (ms): Cross=${crossTime}, F2L=${f2lTime}, OLL=${ollTime}, PLL=${pllTime}, Other=${otherTime}`);
+        console.log(`[showSolveDetails] Sum of aggregated times: ${totalAggregatedExecTime}`);
+        console.log(`[showSolveDetails] Solve totalExecutionTime: ${solve.totalExecutionTime}`);
+
+        modalContent.textContent = details; // Set text details
+
+        // --- 3. Create/Update Pie Chart ---
+        const pieChartCanvas = document.getElementById('stepPieChartCanvas');
+        console.log("[showSolveDetails] Found pie chart canvas element:", pieChartCanvas);
+        if (!pieChartCanvas) { console.error("[showSolveDetails] Pie chart canvas element not found in modal!"); modal.style.display = 'block'; return; }
+
+        let pieCtx; try { pieCtx = pieChartCanvas.getContext('2d'); console.log("[showSolveDetails] Got 2d context for pie chart canvas:", pieCtx); } catch (e) { console.error("[showSolveDetails] Failed to get 2d context:", e); modal.style.display = 'block'; return; }
+
+        // Destroy previous chart instance
+        if (stepPieChart) { console.log("[showSolveDetails] Attempting to destroy previous step pie chart:", stepPieChart); try { stepPieChart.destroy(); console.log("[showSolveDetails] Previous pie chart destroyed."); } catch (destroyError) { console.error("[showSolveDetails] Error destroying previous chart:", destroyError); } stepPieChart = null; }
+
+        const stepExecutionData = [crossTime, f2lTime, ollTime, pllTime, otherTime];
+        const filteredLabels = [], filteredData = [], filteredColors = [];
+        const totalValidExecTimeFromSteps = stepExecutionData.reduce((sum, time) => sum + (time || 0), 0);
+
+        stepExecutionData.forEach((time, index) => { if (time > 0 || totalValidExecTimeFromSteps === 0) { filteredLabels.push(stepLabels[index]); filteredData.push(time || 0); filteredColors.push(stepColors[index]); } });
+
+        console.log("[showSolveDetails] Filtered Pie Data:", filteredData);
+        console.log("[showSolveDetails] Filtered Pie Labels:", filteredLabels);
+
+        // Only create chart if there's data
+        if (filteredData.length > 0) {
+             console.log("[showSolveDetails] Creating new pie chart...");
+             try {
+                 stepPieChart = new Chart(pieCtx, {
+                    type: 'pie',
+                    data: { labels: filteredLabels, datasets: [{ label: 'Step Execution Time', data: filteredData, backgroundColor: filteredColors, borderColor: '#555', borderWidth: 1 }] },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: {
+                                    color: '#ccc',
+                                    boxWidth: 15,
+                                    padding: 15,
+                                    generateLabels: function(chart) {
+                                        const data = chart.data;
+                                        const total = data.datasets[0].data.reduce((sum, value) => sum + value, 0);
+                                        return data.labels.map((label, index) => {
+                                            const value = data.datasets[0].data[index];
+                                            const percentage = ((value / total) * 100).toFixed(1);
+                                            return {
+                                                text: `${label}: ${percentage}%`,
+                                                fillStyle: data.datasets[0].backgroundColor[index],
+                                                strokeStyle: '#000',
+                                                lineWidth: 0,
+                                                hidden: !chart.getDataVisibility(index),
+                                                index: index
+                                            };
+                                        });
+                                    }
+                                }
+                            },
+                            tooltip: { callbacks: { label: function(context) { const label = context.label || ''; const value = context.raw || 0; const totalTimeToUse = (typeof solve.totalExecutionTime === 'number' && solve.totalExecutionTime > 0) ? solve.totalExecutionTime : (totalValidExecTimeFromSteps > 0 ? totalValidExecTimeFromSteps : 1); const percentage = (value / totalTimeToUse) * 100; const formattedTime = formatTime(value, true); return `${label}: ${formattedTime} (${percentage.toFixed(1)}%)`; } } }
+                        },
+                        layout: {
+                            padding: {
+                                top: 10,
+                                bottom: 10
+                            }
+                        }
+                    }
+                 });
+                 console.log("[showSolveDetails] Pie chart created successfully:", stepPieChart);
+             } catch (chartError) { console.error("[showSolveDetails] ERROR Creating pie chart:", chartError); stepPieChart = null; }
+        } else {
+            console.log("[showSolveDetails] No valid step execution data to create pie chart.");
+            // Optional: Clear canvas
+            // pieCtx.clearRect(0, 0, pieChartCanvas.width, pieChartCanvas.height);
+            // pieCtx.fillStyle = '#aaa'; pieCtx.textAlign = 'center'; pieCtx.fillText("No step data", pieChartCanvas.width / 2, pieChartCanvas.height / 2);
+        }
+
+        modal.style.display = 'block';
+        console.log("[showSolveDetails] Modal display set to block.");
+
+    }
+    // --- End of Updated showSolveDetails ---
+
+    function closeModal() {
+        if (!modal) return;
+        modal.style.display = 'none';
+        if (modalContent) modalContent.textContent = '';
+
+        // *** Destroy pie chart when modal closes ***
+        if (stepPieChart) { console.log("[closeModal] Destroying step pie chart."); try { stepPieChart.destroy(); } catch (destroyError) { console.error("[closeModal] Error destroying pie chart:", destroyError); } stepPieChart = null; }
+        console.log("Modal closed.");
+    }
+    // --- End of Updated closeModal ---
+
+
+    // --- Event Listeners ---
+    if (fileInput) { console.log("Attaching event listener to file input."); fileInput.addEventListener('change', (event) => { console.log("File input 'change' event fired!"); const file = event.target.files[0]; console.log("Selected file:", file ? file.name : 'No file selected'); if (file) { console.log("File exists, attempting to parse..."); try { Papa.parse(file, { header: false, skipEmptyLines: true, complete: (results) => { console.log("PapaParse complete."); try { console.log("Raw PapaParse data (first 5 rows):", results.data.slice(0, 5)); if (!results.data || results.data.length < 2) { console.warn("PapaParse result data seems empty..."); alert("Could not parse meaningful data..."); allSolves = []; displayedSolves = []; if(solveCountDisplay) solveCountDisplay.textContent = 'Solves: 0'; initializeChart(); displayData(); return; } allSolves = processSolves(results.data); extractSessions(allSolves); populateSessionSelect(); const sessionNames = Object.keys(sessionMap); if (sessionNames.length > 0) { sessionSelect.value = sessionNames[0]; setSession(sessionNames[0]); } else { displayedSolves = []; displayData(); updateChart(); } } catch (processingError) { console.error("Error during data processing:", processingError); alert("Error processing the CSV data..."); allSolves = []; displayedSolves = []; if(solveCountDisplay) solveCountDisplay.textContent = 'Solves: 0'; initializeChart(); displayData(); } }, error: (error, f) => { console.error("PapaParse error:", error); alert("Error parsing CSV file: " + error.message); if(dataBody) dataBody.innerHTML = '<div class="placeholder-row">Error parsing file.</div>'; if(solveCountDisplay) solveCountDisplay.textContent = 'Solves: 0'; allSolves = []; displayedSolves = []; initializeChart(); } }); } catch(papaError) { console.error("Error calling Papa.parse:", papaError); alert("An error occurred trying to start parsing."); allSolves = []; displayedSolves = []; if(solveCountDisplay) solveCountDisplay.textContent = 'Solves: 0'; initializeChart(); displayData(); } } else { console.log("No file selected."); } }); console.log("File input event listener attached."); }
+    if (headerSpans) { headerSpans.forEach(span => { span.addEventListener('click', () => { if (span.dataset.column) { sortData(span.dataset.column); } else { console.warn("Clicked header lacks 'data-column'."); } }); }); } else { console.warn("Could not find header spans for sorting."); }
+    if (dataBody) { dataBody.addEventListener('click', (event) => { const row = event.target.closest('.data-row'); if (row && row.dataset.solveId) { showSolveDetails(row.dataset.solveId); } }); } else { console.error("dataBody element not found for modal click listener."); }
+    if (closeModalButton) { closeModalButton.addEventListener('click', closeModal); } else { console.warn("Close modal button not found."); }
+    if (modal) { modal.addEventListener('click', (event) => { if (event.target === modal) { closeModal(); } }); } else { console.error("Modal element not found for background click listener."); }
+    if (sessionSelect) {
+        sessionSelect.addEventListener('change', () => {
+            setSession(sessionSelect.value);
+        });
+    }
+    if (changeSessionButton) {
+        changeSessionButton.addEventListener('click', () => {
+            if (!sessionSelect) return;
+            const options = Array.from(sessionSelect.options);
+            if (options.length < 2) return;
+            let idx = sessionSelect.selectedIndex;
+            idx = (idx + 1) % options.length;
+            sessionSelect.selectedIndex = idx;
+            setSession(sessionSelect.value);
+        });
+    }
+    // --- End of Event Listeners ---
+
+
+    // --- Initial Setup ---
+    initializeChart(); // Initialize main line chart
+    updateSortArrows();
+    displayData(); // Show initial placeholder
+
+    console.log("Initial setup complete."); // <-- DEBUG End
+
+    // --- Session Handling ---
+    function extractSessions(solves) {
+        // Try to extract session info from solves (if present)
+        // If no session column, treat all as one session
+        sessionMap = {};
+        let sessionCol = null;
+        if (solves.length > 0) {
+            // Try to find a 'session' property
+            if ('session' in solves[0]) sessionCol = 'session';
+            else if ('session_name' in solves[0]) sessionCol = 'session_name';
+        }
+        if (!sessionCol) {
+            sessionMap['All'] = solves;
+        } else {
+            solves.forEach(solve => {
+                const sessionName = solve[sessionCol] || 'Unknown';
+                if (!sessionMap[sessionName]) sessionMap[sessionName] = [];
+                sessionMap[sessionName].push(solve);
+            });
+        }
+    }
+
+    function populateSessionSelect() {
+        if (!sessionSelect) return;
+        sessionSelect.innerHTML = '';
+        const sessionNames = Object.keys(sessionMap);
+        sessionNames.forEach(name => {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name;
+            sessionSelect.appendChild(opt);
+        });
+        sessionSelect.style.display = sessionNames.length > 1 ? '' : 'none';
+        if (changeSessionButton) {
+            changeSessionButton.style.display = sessionNames.length > 1 ? '' : 'none';
+            changeSessionButton.disabled = sessionNames.length <= 1;
+        }
+    }
+
+    function setSession(sessionName) {
+        currentSession = sessionName;
+        displayedSolves = sessionMap[sessionName] ? [...sessionMap[sessionName]] : [];
+        sortData(currentSort.column);
+        updateChart();
+    }
+
+}); // End DOMContentLoaded

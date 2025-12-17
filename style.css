@@ -1,0 +1,973 @@
+/* style.css */
+
+/* Base Styles & Variables (Optional but good practice) */
+:root {
+    /* Define base font size for rem calculation (usually 16px) */
+    /* font-size: 16px; */
+    /* Define colors */
+    --bg-color: #3a3a3a;
+    --text-color: #ccc;
+    --text-muted-color: #aaa;
+    --text-header-color: #999;
+    --text-highlight-color: #eee;
+    --border-color: #555;
+    --border-modal-color: #666;
+    --hover-bg-color: #4a4a4a;
+    --modal-bg-color: #444;
+    --modal-pre-bg-color: #333;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    margin: 0;
+    /* Use rem for padding */
+    padding: 1.875rem; /* 30px / 16px */
+    font-size: 1rem; /* Base font size */
+    line-height: 1.5; /* Improve readability */
+}
+
+.container {
+    max-width: 1100px; /* Keeping max-width potentially in px is fine */
+    /* Or use rem: max-width: 68.75rem; */
+    margin: 0 auto;
+}
+
+/* --- File Selector --- */
+.file-selector {
+    margin-bottom: 2.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+}
+
+.file-button { /* Keep existing styles */
+    display: inline-block;
+    padding: 0.75rem 2.1875rem;
+    border: 1px solid #888;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border-radius: 1.5625rem;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background-color 0.2s ease;
+    margin: 0;
+}
+.file-button:hover {
+    background-color: var(--hover-bg-color);
+}
+
+
+/* --- Custom Session Selector --- */
+.session-selector-container {
+    /* position: relative; -- Set inline for initial state */
+    margin-left: 0.625rem; /* Spacing after file button */
+}
+
+#changeSessionButton {
+    /* Reuse file-button styles or create specific ones */
+    display: inline-block;
+    padding: 0.75rem 1.5rem; /* Adjust padding */
+    border: 1px solid #888;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border-radius: 1.5625rem;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background-color 0.2s ease;
+    margin: 0; /* Remove default margins */
+    min-width: 100px; /* Ensure minimum width */
+    text-align: center;
+}
+#changeSessionButton:hover {
+    background-color: var(--hover-bg-color);
+}
+#changeSessionButton:disabled { /* Style when no sessions */
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+
+.custom-session-dropdown {
+    display: none; /* Hidden by default */
+    position: absolute;
+    top: calc(100% + 5px); /* Position below the button */
+    left: 0;
+    background-color: var(--modal-bg-color); /* Use modal background */
+    border: 1px solid var(--border-modal-color);
+    border-radius: 4px;
+    min-width: 150px; /* Ensure minimum width */
+    max-width: 250px; /* Limit maximum width */
+    max-height: 200px; /* Limit height and make scrollable */
+    overflow-y: auto;
+    z-index: 100; /* Ensure it's above other elements */
+    box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+}
+.custom-session-dropdown.dropdown-visible {
+    display: block; /* Show the dropdown */
+}
+
+.custom-session-dropdown .session-item {
+    padding: 0.6rem 1rem; /* Padding for items */
+    color: var(--text-highlight-color);
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block; /* Ensure items take full width */
+    transition: background-color 0.1s ease;
+}
+
+.custom-session-dropdown .session-item:hover {
+    background-color: var(--hover-bg-color);
+}
+/* --- End Custom Session Selector --- */
+
+
+.solve-count {
+    font-size: 0.9rem;
+    color: var(--text-muted-color);
+    margin-left: auto; /* Push solve count to the right */
+}
+
+
+/* --- Main Layout --- */
+.main-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    /* Use rem for gap */
+    gap: 2.5rem; /* 40px */
+}
+
+/* --- Data List --- */
+.data-display {
+    flex: 1; /* Takes up remaining space */
+    min-width: 25rem; /* 400px - Use rem for min-width */
+}
+
+/* ↓↓↓ Data Header and Row Styles (Keep as is) ↓↓↓ */
+.data-header, .data-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.3125rem 0;
+}
+
+.data-header {
+    font-size: 0.75rem;
+    color: var(--text-header-color);
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.data-header span.sortable {
+    cursor: pointer;
+    user-select: none;
+}
+.data-header span.sortable:hover {
+    color: var(--text-highlight-color);
+}
+
+.sort-arrow {
+    display: inline-block;
+    width: 1em;
+    text-align: center;
+    opacity: 0.6;
+    margin-left: 0.25em;
+}
+
+.data-header span, .data-row span {
+    flex-basis: 23%;
+    text-align: left;
+    padding: 0 0.3125rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.data-header span:first-child, .data-row span:first-child {
+    padding-left: 0;
+}
+.data-header span:last-child, .data-row span:last-child {
+    padding-right: 0;
+}
+
+.data-row {
+    font-size: 1rem;
+    color: #ddd;
+    border-bottom: 1px solid var(--border-color);
+    padding: 0.5rem 0;
+    cursor: pointer;
+    transition: background-color 0.1s ease;
+}
+
+.data-row:hover {
+    background-color: var(--hover-bg-color);
+}
+
+.placeholder-row { /* Applies to data list AND record history */
+    color: var(--text-muted-color);
+    padding: 1.25rem 0.3125rem;
+    text-align: center;
+    font-style: italic;
+    border-bottom: none !important; /* Ensure placeholder has no border */
+}
+/* ↑↑↑ End Data Header and Row Styles ↑↑↑ */
+
+
+/* ↓↓↓ NEW: Wrapper for Chart Area ↓↓↓ */
+.chart-area-wrapper {
+    flex: 1.5; /* Takes more space relative to data list */
+    display: flex;
+    flex-direction: column; /* Stack chart and history */
+    gap: 1.5rem; /* Space between chart and history */
+    min-width: 28.125rem; /* Ensure wrapper has min-width if needed */
+}
+/* ↑↑↑ End Wrapper for Chart Area ↑↑↑ */
+
+
+/* --- Chart (Main Line Chart) --- */
+.chart-container {
+    /* Remove flex sizing if parent handles it */
+    min-width: initial; /* Remove min-width if parent controls */
+    width: 100%; /* Take width of wrapper */
+    height: 21.875rem; /* 350px - Keep desired height */
+    border: 1px solid #000;
+    background-color: var(--bg-color);
+    position: relative;
+    /* Use rem for padding */
+    padding: 0.625rem; /* 10px */
+}
+
+#solvesChart {
+     width: 100%;
+    height: 100%;
+}
+
+
+/* --- Record History Styles --- */
+.record-history {
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-color);
+    padding: 1rem;
+    border-radius: 4px;
+    min-height: 100px;
+    width: 100%;
+}
+
+.record-history h2 {
+    margin-top: 0;
+    margin-bottom: 0.5rem; /* Reduced margin */
+    padding-bottom: 0.5rem;
+    font-size: 1.1rem;
+    color: var(--text-highlight-color);
+    border-bottom: 1px solid var(--border-color);
+}
+
+/* ↓↓↓ NEW Styles for Filter Buttons ↓↓↓ */
+.record-filter-buttons {
+    display: flex;
+    gap: 0.5rem; /* Space between buttons */
+    margin-bottom: 0.8rem; /* Space below buttons */
+    flex-wrap: wrap; /* Allow wrapping if needed */
+}
+
+.record-filter-button {
+    padding: 0.3rem 0.8rem;
+    font-size: 0.85rem;
+    background-color: var(--bg-color);
+    color: var(--text-muted-color);
+    border: 1px solid var(--border-color);
+    border-radius: 1rem; /* Pill shape */
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    opacity: 0.7;
+}
+
+.record-filter-button:hover {
+    background-color: var(--hover-bg-color);
+    color: var(--text-highlight-color);
+    opacity: 1;
+}
+
+.record-filter-button.active {
+    background-color: var(--hover-bg-color); /* Or a more distinct active color */
+    color: var(--text-highlight-color);
+    border-color: var(--text-muted-color); /* Slightly brighter border */
+    font-weight: 500;
+    opacity: 1;
+}
+
+#recordHistoryList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 250px; /* Limit height, make scrollable */
+    overflow-y: auto;
+    font-size: 0.9rem;
+}
+
+#recordHistoryList li {
+    padding: 0.3rem 0;
+    border-bottom: 1px dashed var(--border-color);
+    color: var(--text-color);
+    line-height: 1.4;
+}
+#recordHistoryList li:last-child {
+    border-bottom: none;
+}
+#recordHistoryList .placeholder-row { /* Shared placeholder style */
+    color: var(--text-muted-color);
+    font-style: italic;
+    border-bottom: none !important;
+    text-align: center;
+    padding: 1rem 0;
+}
+#recordHistoryList .record-type {
+    font-weight: bold;
+    margin-right: 0.5em;
+    display: inline-block;
+    min-width: 80px;
+    color: var(--text-color);
+}
+#recordHistoryList .record-value {
+    color: var(--text-highlight-color);
+    margin-right: 0.5em;
+    font-weight: 500;
+}
+#recordHistoryList .record-details {
+    margin-left: 5px;
+}
+#recordHistoryList .record-solve-num,
+#recordHistoryList .record-date {
+    font-size: 0.8em;
+    color: var(--text-muted-color);
+}
+/* ↑↑↑ End Record History Styles ↑↑↑ */
+
+
+/* --- Statistics Section Styles --- */
+.stats-section {
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-color);
+    padding: 1rem;
+    border-radius: 4px;
+    margin-top: 1.5rem;
+    width: 100%;
+}
+
+.stats-section h2 {
+    margin-top: 0;
+    margin-bottom: 0.8rem;
+    padding-bottom: 0.5rem;
+    font-size: 1.1rem;
+    color: var(--text-highlight-color);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.stats-section h3 {
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.95rem;
+    color: var(--text-highlight-color);
+}
+
+.stats-input-container {
+    display: flex;
+    gap: 0.8rem;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.stats-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.stats-input-group label {
+    font-size: 0.85rem;
+    color: var(--text-muted-color);
+}
+
+.stats-input-group input {
+    padding: 0.5rem 0.8rem;
+    background-color: var(--modal-pre-bg-color);
+    border: 1px solid var(--border-color);
+    color: var(--text-highlight-color);
+    border-radius: 4px;
+    font-size: 0.9rem;
+    min-width: 180px;
+}
+
+.stats-input-group input:focus {
+    outline: none;
+    border-color: var(--text-muted-color);
+}
+
+.stats-input-group input::placeholder {
+    color: var(--text-header-color);
+}
+
+.calculate-stats-button {
+    padding: 0.5rem 1.5rem;
+    background-color: var(--hover-bg-color);
+    color: var(--text-highlight-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.calculate-stats-button:hover {
+    background-color: var(--modal-pre-bg-color);
+    border-color: var(--text-muted-color);
+}
+
+.stats-results {
+    margin-top: 1rem;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.8rem;
+    margin-bottom: 1rem;
+}
+
+.stat-card {
+    background-color: var(--modal-pre-bg-color);
+    padding: 0.8rem;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    color: var(--text-muted-color);
+    text-transform: uppercase;
+    margin-bottom: 0.4rem;
+}
+
+.stat-value {
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: var(--text-highlight-color);
+}
+
+.stats-steps {
+    margin-top: 1rem;
+}
+
+.step-stats-list {
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.step-stat-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.4rem 0;
+    border-bottom: 1px dashed var(--border-color);
+}
+
+.step-stat-item:last-child {
+    border-bottom: none;
+}
+
+.step-stat-name {
+    color: var(--text-color);
+    font-size: 0.9rem;
+}
+
+.step-stat-time {
+    color: var(--text-highlight-color);
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.step-stat-placeholder {
+    color: var(--text-muted-color);
+    font-style: italic;
+    text-align: center;
+    padding: 1rem 0;
+    font-size: 0.9rem;
+}
+/* ↑↑↑ End Statistics Section Styles ↑↑↑ */
+
+
+
+/* --- Modal Styles --- */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.6);
+    /* Change to flex for better centering */
+    justify-content: center;
+    align-items: flex-start;
+    padding: 2rem 1rem;
+    padding-top: 5vh; /* Start modals a bit from top */
+}
+
+.modal-content {
+    background-color: var(--modal-bg-color);
+    /* No margin: auto needed when using flex centering on parent */
+    padding: 1.5rem;
+    border: 1px solid var(--border-modal-color);
+    width: 90%;
+    max-width: 800px; /* Adjust as needed */
+    border-radius: 5px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    /* Remove any fixed height if present */
+}
+
+.close-button {
+    color: var(--text-muted-color);
+    position: absolute;
+    top: 0.5rem; /* Position relative to modal-content */
+    right: 1rem;
+    font-size: 2rem; /* Make it larger */
+    font-weight: bold;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.close-button:hover,
+.close-button:focus {
+    color: #fff; /* Brighter on hover */
+    text-decoration: none;
+}
+
+.modal-body {
+    display: flex;          /* Flex layout for text and chart */
+    gap: 1.5rem;            /* Space between text and chart */
+    align-items: flex-start; /* Align items at the top */
+    flex-wrap: wrap;        /* Allow chart to wrap below text on small screens */
+}
+
+.modal-text-details {
+    flex: 1; /* Allow text to grow */
+    min-width: 300px; /* Give text area a minimum width */
+}
+.modal-text-details > h2 {
+    margin-top: 0;
+    margin-bottom: 0.8rem;
+    font-size: 1.2rem;
+    color: var(--text-highlight-color);
+}
+
+.modal-chart-container {
+    /* flex: 0 0 15.625rem; */ /* Remove fixed flex-basis */
+    /* min-width: 15.625rem; */ /* Remove min-width */
+    width: 250px; /* Set an explicit width */
+    max-width: 100%; /* Prevent exceeding parent on very small screens */
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* Add position relative FOR the canvas absolute positioning if needed */
+    position: relative;
+    /* Add a minimum height to prevent collapse before chart draws */
+    min-height: 200px;
+}
+
+.modal-chart-container > h2 {
+    margin-top: 0;
+    margin-bottom: 0.8rem;
+    font-size: 1.2rem;
+    color: var(--text-highlight-color);
+    text-align: center;
+    width: 100%; /* Ensure title takes full width */
+}
+
+#stepPieChartCanvas {
+    display: block; /* Ensure canvas behaves like a block element */
+    /* Make canvas explicitly fill the container */
+    max-width: 100%;
+    max-height: 250px; /* Add a max-height just in case */
+    /* width: 100%; */ /* Let Chart.js handle canvas sizing based on container */
+    /* height: auto; */
+}
+
+#solveDetailContent {
+    white-space: pre-wrap; /* Allows wrapping */
+    word-wrap: break-word; /* Break long words/scrambles */
+    font-family: monospace;
+    background-color: var(--modal-pre-bg-color); /* Slightly different bg */
+    padding: 0.8rem;
+    border-radius: 3px;
+    max-height: 400px; /* Limit height of text block */
+    overflow-y: auto; /* Add scroll if text is long */
+    font-size: 0.9rem;
+}
+
+/* --- Responsiveness --- */
+
+/* Adjust modal layout for smaller screens */
+@media (max-width: 700px) {
+    .modal-body {
+        flex-direction: column;
+        align-items: center;
+    }
+    .modal-chart-container {
+        flex-basis: auto;
+        width: 90%;
+        max-width: 300px;
+        min-width: initial;
+    }
+     .modal-text-details {
+        min-width: initial;
+        width: 100%;
+    }
+     .modal-content {
+        width: 95%;
+        padding: 1rem;
+     }
+     .close-button {
+        top: 0.2rem;
+        right: 0.5rem;
+        font-size: 1.8rem;
+     }
+}
+
+/* Tablets and below */
+@media (max-width: 800px) {
+    body {
+        padding: 1rem;
+    }
+
+    .main-content {
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .data-display,
+    .chart-area-wrapper { /* Apply stacking adjustment to wrapper */
+        flex: none;
+        width: 100%;
+    }
+
+    .chart-container {
+        height: 18.75rem;
+    }
+    /* Record history height might auto-adjust, add rules if needed */
+    /* .record-history { max-height: 120px; } */
+
+     .modal-content {
+        width: 90%;
+     }
+}
+
+/* ↓↓↓ Keep other media queries (600px, 480px) as they are ↓↓↓ */
+/* Smaller Tablets / Large Phones */
+@media (max-width: 600px) { /* ... */ }
+/* Mobile Phones */
+@media (max-width: 480px) { /* ... */ }
+/* ↑↑↑ End other media queries ↑↑↑ */
+
+
+/* --- Notification Area Styles --- */
+/* ↓↓↓ Keep notification styles as they are ↓↓↓ */
+#notificationArea { position: fixed; /* ... */ }
+.notification { padding: 0.8rem 1rem; /* ... */ }
+.notification-info { background-color: #007bff; }
+.notification-success { background-color: #28a745; }
+.notification-warning { background-color: #ffc107; color: #333; }
+.notification-error { background-color: #dc3545; }
+/* ↑↑↑ End notification styles ↑↑↑ */
+
+.record-detail-button {
+    margin-left: 0.8rem;
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    color: var(--text-muted-color);
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    float: right; /* Push to the right side */
+}
+.record-detail-button:hover {
+    color: var(--text-highlight-color);
+    background: var(--hover-bg-color);
+    border-color: var(--text-muted-color);
+}
+
+/* Enhanced Modal Styles - Fix whitespace and buttons */
+.modal-content {
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 1.5rem; /* Consistent padding */
+    width: 95%;
+    max-width: 1600px;
+    min-width: 1000px;
+    margin: 0; /* Remove any margin */
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+    margin-top: 0; /* Ensure no top margin */
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.3rem;
+    color: var(--text-highlight-color);
+}
+
+.modal-header-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* IMPROVED: Better styled buttons */
+.modal-button {
+    padding: 0.5rem 1rem; /* More padding */
+    border: 1px solid var(--border-color);
+    background: var(--modal-bg-color); /* Use modal background */
+    color: var(--text-highlight-color); /* Brighter text */
+    border-radius: 6px; /* Rounded corners */
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500; /* Slightly bold */
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Subtle shadow */
+}
+
+.modal-button:hover {
+    background: var(--hover-bg-color);
+    color: #fff; /* Pure white on hover */
+    border-color: var(--text-highlight-color);
+    box-shadow: 0 3px 6px rgba(0,0,0,0.2); /* More shadow on hover */
+    transform: translateY(-1px); /* Slight lift effect */
+}
+
+.modal-button.back-button {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); /* Nice gradient */
+    border-color: #667eea;
+    color: white;
+}
+
+.modal-button.back-button:hover {
+    background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%); /* Darker on hover */
+    border-color: #5a6fd8;
+    color: white;
+}
+
+.modal-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    margin-top: 0; /* No top margin */
+}
+
+.modal-stat-card {
+    background: var(--modal-pre-bg-color);
+    padding: 1rem;
+    border-radius: 6px;
+    text-align: center;
+    border: 1px solid var(--border-color);
+    min-height: 90px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.modal-stat-value {
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: var(--text-highlight-color);
+    display: block;
+    margin-bottom: 0.3rem;
+}
+
+.modal-stat-label {
+    font-size: 0.8rem;
+    color: var(--text-muted-color);
+    text-transform: uppercase;
+}
+
+/* Side-by-side layout */
+.modal-details-layout {
+    display: flex;
+    gap: 2rem;
+    align-items: flex-start;
+    margin-top: 1rem;
+}
+
+.modal-details-left {
+    flex: 2;
+    min-width: 0;
+}
+
+.modal-details-right {
+    flex: 1;
+    max-width: 400px;
+    min-width: 300px;
+}
+
+/* Reduce line spacing */
+.modal-content p {
+    margin: 0.3rem 0;
+    line-height: 1.2;
+}
+
+.modal-content h3 {
+    margin: 0.5rem 0 0.3rem 0;
+    line-height: 1.2;
+}
+
+.modal-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0.5rem;
+}
+
+.modal-table th,
+.modal-table td {
+    padding: 0.4rem 0.6rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+    line-height: 1.1;
+}
+
+.modal-table th {
+    background: var(--modal-pre-bg-color);
+    color: var(--text-muted-color);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    font-weight: 500;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+}
+
+.modal-table th:hover {
+    background: var(--hover-bg-color);
+    color: var(--text-highlight-color);
+}
+
+.modal-table th.sortable::after {
+    content: '↕';
+    position: absolute;
+    right: 0.3rem;
+    opacity: 0.5;
+    font-size: 0.7rem;
+}
+
+.modal-table th.sorted-asc::after {
+    content: '↑';
+    opacity: 1;
+}
+
+.modal-table th.sorted-desc::after {
+    content: '↓';
+    opacity: 1;
+}
+
+.modal-table tr:hover {
+    background: var(--hover-bg-color);
+    cursor: pointer;
+}
+
+.modal-table .solve-number {
+    color: var(--text-muted-color);
+    font-weight: 500;
+}
+
+.modal-table .solve-time {
+    color: var(--text-highlight-color);
+    font-weight: 500;
+}
+
+.modal-table .solve-dnf {
+    color: #ff6b6b;
+    font-weight: bold;
+}
+
+.modal-chart-container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Remove default margin from modal body */
+.modal-body {
+    margin: 0;
+    padding: 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+    .modal-content {
+        width: 90%;
+        max-width: 1000px;
+        min-width: 700px;
+    }
+    
+    .modal-details-layout {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .modal-details-right {
+        max-width: 100%;
+    }
+}
+
+/* 2-A – hide the empty header-button container when no buttons exist */
+.modal-header-buttons:empty { display: none; }
+
+/* 2-B – make the back-button look like before (pill shape) */
+.modal-button.back-button {
+    background: var(--bg-color);
+    border: 1px solid var(--text-muted-color);
+    color: var(--text-highlight-color);
+    border-radius: 1.2rem;
+    padding: 0.35rem 1rem;
+    font-weight: 500;
+}
+.modal-button.back-button:hover {
+    background: var(--hover-bg-color);
+}
+
+/* 2-C – tighten text everywhere inside the modal */
+.modal-content p { margin: 0.25rem 0; line-height: 1.25; }
+
+/* 2-D – guarantee the chart really sits on the right side            */
+.modal-details-layout { flex-wrap: nowrap; }
+
+/* 2-E – modal big enough for 2560×1440                               */
+.modal-content { max-width: 1600px; min-width: 1000px; }
+.stat-percentage {
+    font-size: 0.75rem;
+    font-weight: normal;
+    color: var(--text-muted-color);
+}
